@@ -1,13 +1,25 @@
 import 'package:assignment_app/components/chat_bubble_custom.dart';
 import 'package:assignment_app/controller/chat_controller.dart';
+import 'package:assignment_app/model/conversation_model.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-class ChatPage extends StatelessWidget {
-  final String tag;
-  ChatPage({Key? key, required this.tag}) : super(key: key);
+class ChatPage extends StatefulWidget {
+  final ConversationModel data;
+  ChatPage({Key? key, required this.data}) : super(key: key);
 
-  final controller = Get.put(ChatController());
+  @override
+  State<ChatPage> createState() => _ChatPageState();
+}
+
+class _ChatPageState extends State<ChatPage> {
+  late ChatController controller;
+
+  @override
+  void initState() {
+    controller = Get.put(ChatController(widget.data));
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,12 +37,35 @@ class ChatPage extends StatelessWidget {
           ),
         ),
         title: Text(
-          tag.capitalize!,
+          widget.data.topic.capitalize!,
           style: Get.textTheme.headline5!.copyWith(
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
         ),
+        actions: [
+          PopupMenuButton(
+            child: const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: const Icon(
+                Icons.more_vert,
+                color: Colors.black,
+              ),
+            ),
+            initialValue: 0,
+            onSelected: ((value) async {
+              await controller.conversationController
+                  .updateLastConversation(widget.data.id, 0);
+              controller.currentMessage(0);
+            }),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                child: Text("Clear Conversation"),
+                value: 1,
+              ),
+            ],
+          ),
+        ],
       ),
       body: Obx(
         () => controller.loading.value
@@ -38,7 +73,11 @@ class ChatPage extends StatelessWidget {
                 child: CircularProgressIndicator(),
               )
             : ListView.builder(
-                itemCount: controller.currentMessage.value + 1,
+                controller: controller.scrollController,
+                itemCount:
+                    controller.currentMessage.value < controller.chat.length
+                        ? controller.currentMessage.value + 1
+                        : controller.chat.length,
                 itemBuilder: (context, index) {
                   if (index == controller.currentMessage.value) {
                     return ChatBubbleCustom(
@@ -62,32 +101,65 @@ class ChatPage extends StatelessWidget {
       bottomNavigationBar: Obx(
         () => controller.loading.value
             ? Container()
-            : Row(
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
+                  Visibility(
+                    visible: controller.currentMessage.value <
+                        controller.chat.length,
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Obx(() => Text(
-                            controller
-                                .chat[controller.currentMessage.value].human,
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold),
+                            'Speak: ' +
+                                controller.chat[controller.currentMessage.value]
+                                    .human,
+                            style: const TextStyle(
+                                color: Colors.blue,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold),
                           )),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: FloatingActionButton(
-                      backgroundColor: const Color.fromARGB(255, 255, 0, 100),
-                      onPressed: controller.speechToText.value.isNotListening
-                          ? controller.startListening
-                          : controller.stopListening,
-                      tooltip: 'Listen',
-                      child: Obx(() => !controller.listening.value
-                          ? Icon(
-                              Icons.mic_off,
-                            )
-                          : Icon(Icons.mic)),
+                  Container(
+                    margin: const EdgeInsets.all(8.0),
+                    decoration: BoxDecoration(
+                      border: Border.all(),
+                      borderRadius: BorderRadius.circular(20.0),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Obx(() => Text(
+                                  controller.lastWords.value,
+                                  style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold),
+                                )),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: FloatingActionButton(
+                            mini: true,
+                            backgroundColor:
+                                const Color.fromARGB(255, 255, 0, 100),
+                            onPressed: !controller.listening.value
+                                ? controller.startListening
+                                : controller.stopListening,
+                            tooltip: 'Listen',
+                            child: Obx(() => !controller.listening.value
+                                ? const Icon(
+                                    Icons.mic_off,
+                                  )
+                                : const Icon(Icons.mic)),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

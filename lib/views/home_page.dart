@@ -1,5 +1,5 @@
-import 'package:assignment_app/controller/auth_controller.dart';
 import 'package:assignment_app/controller/conversation_controller.dart';
+import 'package:assignment_app/controller/validation_controller.dart';
 import 'package:assignment_app/mock_data/data.dart';
 import 'package:assignment_app/views/chat_page.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +8,7 @@ import '../components/conversation_list_tile.dart';
 
 class HomePage extends StatelessWidget {
   HomePage({Key? key}) : super(key: key);
-  final authController = Get.find<AuthController>();
+  final authController = Get.find<ValidationController>();
   final tagController = Get.put(ConversationController());
 
   @override
@@ -26,15 +26,18 @@ class HomePage extends StatelessWidget {
           ),
         ),
         actions: [
-          ActionChip(
-            label: Text(
-              'Log out',
-              style: TextStyle(color: Colors.black),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ActionChip(
+              label: const Text(
+                'Log out',
+                style: TextStyle(color: Colors.black),
+              ),
+              onPressed: () async {
+                await authController.logout();
+                await tagController.deleteConversations();
+              },
             ),
-            onPressed: () async {
-              await authController.logout();
-              await tagController.getTags();
-            },
           ),
         ],
       ),
@@ -59,9 +62,11 @@ class HomePage extends StatelessWidget {
                       ),
                       selected: false,
                       onSelected: (isSelected) async {
-                        await tagController.addTag(e);
+                        final data = await tagController.addConversation(e);
                         Get.back();
-                        Get.to(ChatPage(tag: e));
+                        Get.to(ChatPage(
+                          data: data,
+                        ));
                       },
                       backgroundColor: const Color.fromARGB(108, 255, 226, 236),
                       labelStyle: const TextStyle(color: Colors.white),
@@ -83,15 +88,15 @@ class HomePage extends StatelessWidget {
       ),
       body: Obx(
         () => tagController.loading.value
-            ? Center(
+            ? const Center(
                 child: CircularProgressIndicator(),
               )
             : ListView.builder(
-                itemCount: tagController.tags.length,
+                itemCount: tagController.conversations.length,
                 itemBuilder: (context, index) {
                   return ConversationListTile(
-                    chatTitle: tagController.tags[index],
-                    icon: topicUrl[tagController.tags[index]]!,
+                    data: tagController.conversations[index],
+                    icon: topicUrl[tagController.conversations[index].topic],
                   );
                 },
               ),

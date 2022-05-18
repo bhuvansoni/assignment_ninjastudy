@@ -1,13 +1,20 @@
 class ConversationModel {
   String topic;
-  String url;
-  String correctAnswers;
-  String incorrectAnswers;
+  int lastConversation;
+  int id;
 
   ConversationModel({
+    required this.id,
     required this.topic,
-    required this.url,
-    required this.correctAnswers,
-    required this.incorrectAnswers,
+    required this.lastConversation,
   });
+
+  Map<String, dynamic> toMap() {
+    return {'topic': topic, 'lastConversation': lastConversation};
+  }
+
+  static ConversationModel fromMap(Map<String, dynamic> data) {
+    return ConversationModel(
+        topic: data['topic'], lastConversation: data['lastConversation'], id: data['id']);
+  }
 }

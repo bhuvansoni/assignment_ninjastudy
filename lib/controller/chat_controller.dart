@@ -1,22 +1,31 @@
 import 'dart:convert';
+import 'package:assignment_app/controller/conversation_controller.dart';
 import 'package:assignment_app/model/chat_model.dart';
+import 'package:assignment_app/model/conversation_model.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 class ChatController extends GetxController {
+  final conversationController = Get.find<ConversationController>();
+
   final chat = <ChatModel>[].obs;
   final loading = false.obs;
   final currentMessage = 0.obs;
   final speechToText = SpeechToText().obs;
   bool speechEnabled = false;
-  String lastWords = '';
+  final lastWords = ''.obs;
   final listening = false.obs;
+  ConversationModel conversationData;
+  ChatController(this.conversationData);
+  ScrollController scrollController = ScrollController();
 
   @override
   void onInit() {
     getChat();
+    currentMessage.value = conversationData.lastConversation;
     super.onInit();
   }
 
@@ -32,49 +41,56 @@ class ChatController extends GetxController {
     loading(false);
   }
 
-  void validateMessage(String message) {
-    // if (completedChats.last.human == message) {
-    currentMessage(currentMessage.value + 1);
-    // return true;
-    // } else {
-    //   return false;
-    // }
-  }
-
-  /// This has to happen only once per app
   Future<void> initSpeech() async {
-    speechEnabled = await speechToText.value.initialize();
+    speechEnabled = await speechToText.value.initialize(debugLogging: true);
   }
 
-  /// Each time to start a speech recognition session
   void startListening() async {
     await initSpeech();
-    await speechToText.value.listen(onResult: onSpeechResult);
+
     listening(true);
+    speechToText.value.listen(
+      pauseFor: Duration(seconds: 30),
+      listenMode: ListenMode.dictation,
+      onResult: onSpeechResult,
+      listenFor: Duration(minutes: 1),
+    );
   }
 
-  /// Manually stop the active speech recognition session
-  /// Note that there are also timeouts that each platform enforces
-  /// and the SpeechToText plugin supports setting timeouts on the
-  /// listen method.
   void stopListening() async {
-    await speechToText.value.stop();
+    print('here');
     listening(false);
+    await speechToText.value.stop();
+    print(speechToText.value.isNotListening);
   }
 
-  /// This is the callback that the SpeechToText plugin calls when
-  /// the platform returns recognized words.
-  void onSpeechResult(SpeechRecognitionResult result) {
-    lastWords = result.recognizedWords;
+  Future<void> onSpeechResult(SpeechRecognitionResult result) async {
+    lastWords.value = result.recognizedWords;
+
     if (speechToText.value.isListening) {
-      return;
-    }
-    if (chat[currentMessage.value].human.toLowerCase() ==
-        lastWords.toLowerCase()) {
-      currentMessage(currentMessage.value + 1);
+      listening(true);
     } else {
-      Get.snackbar('Invalid response', 'Please try again!',
-          snackPosition: SnackPosition.BOTTOM, duration: Duration(seconds: 1));
+      listening(false);
+    }
+    print(chat[currentMessage.value]
+        .human
+        .toLowerCase()
+        .replaceAll(RegExp('[^A-Za-z0-9]'), ''));
+    if (chat[currentMessage.value]
+            .human
+            .toLowerCase()
+            .replaceAll(RegExp('[^A-Za-z0-9]'), '') ==
+        lastWords.toLowerCase().replaceAll(' ', '')) {
+      lastWords('');
+      print(lastWords.value);
+      currentMessage(currentMessage.value + 1);
+      if (currentMessage.value == chat.length - 1) {
+        return;
+      }
+      conversationController.updateLastConversation(
+          conversationData.id, currentMessage.value);
+      stopListening();
+      scrollController.jumpTo(scrollController.position.maxScrollExtent);
     }
   }
 }
